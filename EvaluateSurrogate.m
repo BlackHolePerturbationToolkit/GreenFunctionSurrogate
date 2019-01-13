@@ -112,15 +112,20 @@ GreenFunctionSurrogate[s_, l_,
        t : (_?NumericQ | {_?NumericQ ..}),
    rstar : (_?NumericQ | {_?NumericQ ..}),
   rstar0 : (_?NumericQ | {_?NumericQ ..})] :=
- Module[{ti, trange, rstari, rstarrange, rstar0i, rstar0range, T, Rstar, Rstar0, interp},
-  {ti, trange} = findPatch[t, sur[s]["times"]];
+ Module[{tRet, ti, trange, rstari, rstarrange, rstar0i, rstar0range, T, Rstar, Rstar0, interp},
+  (* Account for time retardation *)
+  tRet = t - Abs[rstar - rstar0];
+
+  (* Green function is zero for points outside the lightcone *)
+  If[tRet < 0, Return[0.]];
+
+  {ti, trange} = findPatch[tRet, sur[s]["times"]];
   {rstari, rstarrange} = findPatch[rstar, sur[s]["rstar"]];
   {rstar0i, rstar0range} = findPatch[rstar0, sur[s]["rstar0"]];
-  (* FIXME: Add time retardation *)
   If[Head[ti]=!=Span,
     trange = Nothing;
     T = Nothing;,
-    T = t;
+    T = tRet;
   ];
 
   If[Head[rstari]=!=Span,
