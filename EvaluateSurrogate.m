@@ -51,9 +51,9 @@ $SurrogateFile[2] = FileNameJoin[{FileNameDrop[FindFile["GreenFunctionSurrogate`
 ReadSurrogate[file_String] :=
  Module[{eim, B, s, lmax, \[Sigma], rstar, rstar0, times},
   (* Load lightweight data *)
-  s = 0; (* FIXME: ReadHDF5[file, {"Datasets", "s"}] *)
-  lmax = 10; (* FIXME: ReadHDF5[file, {"Datasets", "lmax"}] *)
-  \[Sigma] = 0.6; (* FIXME: ReadHDF5[file, {"Datasets", "sigma"}] *)
+  s = ReadHDF5[file, {"Datasets", "s"}];
+  lmax = ReadHDF5[file, {"Datasets", "lMax"}];
+  \[Sigma] = ReadHDF5[file, {"Datasets", "sigma"}];
   rstar = ReadHDF5[file, {"Datasets", "fieldPoints"}];
   rstar0 = ReadHDF5[file, {"Datasets", "basePoints"}];
   times = ReadHDF5[file, {"Datasets", "times"}];
