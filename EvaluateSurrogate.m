@@ -94,22 +94,22 @@ SurrogateData[assoc_Association][l_Integer, ti_, rstari_, rstar0i_] :=
 (* FIXME: Use off-centred stencil when within one grid cell of the r=r' kink *)
 (* FIXME: Is $MachineEpsilon too stringent here? *)
 findPatch[x_, grid_] :=
- Module[{nearest, index, i, irange, nearestWithPadding},
+ Module[{nearest, index, patch, patchcoords, nearestWithPadding},
   nearest = First[Nearest[grid -> All, x]];
   If[nearest["Distance"] < $MachineEpsilon,
-    i = nearest["Index"];
-    irange = grid[[i]];,
+    patch = index = nearest["Index"];
+    patchcoords = grid[[index]];,
     (* Always choose the nearest point to the left of the specified point *)
     If[x > nearest["Element"],
       index = nearest["Index"];,
       index = nearest["Index"]-1;
     ];
     nearestWithPadding = Min[Max[index, 2], Length[grid]-2];
-    i = Span[nearestWithPadding-1, nearestWithPadding+2];
-    irange=grid[[List@@i]];,
+    patch = Span[nearestWithPadding-1, nearestWithPadding+2];
+    patchcoords = grid[[List@@patch]];,
     $Failed
   ];
-  {i, irange}
+  {index, patch, patchcoords}
 ];
 
 
@@ -117,37 +117,39 @@ GreenFunctionSurrogate[s_, l_,
        t : (_?NumericQ | {_?NumericQ ..}),
    rstar : (_?NumericQ | {_?NumericQ ..}),
   rstar0 : (_?NumericQ | {_?NumericQ ..})] :=
- Module[{tRet, ti, trange, rstari, rstarrange, rstar0i, rstar0range, T, Rstar, Rstar0, interp},
+ Module[{tRet, ti, tp, trange, rstari, rstarp, rstarrange, rstar0i, rstar0p, rstar0range, T, Rstar, Rstar0, interp},
   (* Account for time retardation *)
   tRet = t - Abs[rstar - rstar0];
 
   (* Green function is zero for points outside the lightcone *)
   If[tRet < 0, Return[0.]];
 
-  {ti, trange} = findPatch[tRet, sur[s]["times"]];
-  {rstari, rstarrange} = findPatch[rstar, sur[s]["rstar"]];
-  {rstar0i, rstar0range} = findPatch[rstar0, sur[s]["rstar0"]];
-  If[Head[ti]=!=Span,
+  {ti, tp, trange} = findPatch[tRet, sur[s]["times"]];
+  {rstari, rstarp, rstarrange} = findPatch[rstar, sur[s]["rstar"]];
+  {rstar0i, rstar0p, rstar0range} = findPatch[rstar0, sur[s]["rstar0"]];
+
+  (* Handle the cases where one or more coordinates coincides with a grid point *)
+  If[Head[tp]=!=Span,
     trange = Nothing;
     T = Nothing;,
     T = tRet;
   ];
 
-  If[Head[rstari]=!=Span,
+  If[Head[rstarp]=!=Span,
     rstarrange = Nothing;
     Rstar = Nothing;,
     Rstar=rstar;
   ];
 
-  If[Head[rstar0i]=!=Span,
+  If[Head[rstar0p]=!=Span,
     rstar0range = Nothing;
     Rstar0 = Nothing;,
     Rstar0 = rstar0;
   ];
 
   If[SameQ[Rstar0, Rstar, T, Nothing],
-    sur[s][l, ti, rstari, rstar0i],
-    interp = ListInterpolation[sur[s][l, ti, rstari, rstar0i], {trange, rstarrange, rstar0range}];
+    sur[s][l, tp, rstarp, rstar0p],
+    interp = ListInterpolation[sur[s][l, tp, rstarp, rstar0p], {trange, rstarrange, rstar0range}];
     interp @@ {T, Rstar, Rstar0}
   ]
 ];
