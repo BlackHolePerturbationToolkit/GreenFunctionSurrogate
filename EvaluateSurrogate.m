@@ -90,6 +90,7 @@ SurrogateData[assoc_Association][l_Integer, ti_, rstari_, rstar0i_] :=
 ];
 
 
+(* FIXME: Add support for higher order interpolation *)
 (* FIXME: Use off-centred stencil when within one grid cell of the r=r' kink *)
 (* FIXME: Is $MachineEpsilon too stringent here? *)
 findPatch[x_, grid_] :=
