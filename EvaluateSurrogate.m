@@ -91,16 +91,20 @@ SurrogateData[assoc_Association][l_Integer, ti_, rstari_, rstar0i_] :=
 
 
 (* FIXME: Use off-centred stencil when within one grid cell of the r=r' kink *)
-(* FIXME: Make patch 4x4 instead of 5x5 *)
 (* FIXME: Is $MachineEpsilon too stringent here? *)
 findPatch[x_, grid_] :=
- Module[{nearest, i, irange, nearestWithPadding},
+ Module[{nearest, index, i, irange, nearestWithPadding},
   nearest = First[Nearest[grid -> All, x]];
   If[nearest["Distance"] < $MachineEpsilon,
     i = nearest["Index"];
     irange = grid[[i]];,
-    nearestWithPadding = Min[Max[nearest["Index"], 3], Length[grid]-2];
-    i = Span[nearestWithPadding-2, nearestWithPadding+2];
+    (* Always choose the nearest point to the left of the specified point *)
+    If[x > nearest["Element"],
+      index = nearest["Index"];,
+      index = nearest["Index"]-1;
+    ];
+    nearestWithPadding = Min[Max[index, 2], Length[grid]-2];
+    i = Span[nearestWithPadding-1, nearestWithPadding+2];
     irange=grid[[List@@i]];,
     $Failed
   ];
