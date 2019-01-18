@@ -11,7 +11,7 @@ ReadSurrogate::usage =
  "ReadSurrogate[\!\(\*
 StyleBox[\"file\",\nFontSlant->\"Italic\"]\)] creates a SurrogateData object representing the surrogate stored in \!\(\*
 StyleBox[\"file\",\nFontSlant->\"Italic\"]\).";
- GreenFunctionSurrogate::usage =
+GreenFunctionSurrogate::usage =
  "GreenFunctionSurrogate[\!\(\*
 StyleBox[\"s\",\nFontSlant->\"Italic\"]\), \!\(\*
 StyleBox[\"l\",\nFontSlant->\"Italic\"]\), \!\(\*
