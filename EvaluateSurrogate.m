@@ -44,7 +44,7 @@ sur[s_Integer] := surData[s, $SurrogateFile[s]];
 
 
 $SurrogateFile[0] = FileNameJoin[{FileNameDrop[FindFile["GreenFunctionSurrogate`"], -2], "SurrogateData", "G_s0", "G_sur_s0_sigma0.1_h0.01_t240_hyp.h5"}];
-$SurrogateFile[2] = FileNameJoin[{FileNameDrop[FindFile["GreenFunctionSurrogate`"], -2], "SurrogateData", "G_s2", , "G_sur_s2_sigma0.1_h0.01_t240_hyp.h5"}];
+$SurrogateFile[2] = FileNameJoin[{FileNameDrop[FindFile["GreenFunctionSurrogate`"], -2], "SurrogateData", "G_s2", "G_sur_s2_sigma0.1_h0.01_t240_hyp.h5"}];
 
 
 (* Read in data for surrogate *)
