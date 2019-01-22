@@ -96,7 +96,7 @@ SurrogateData[assoc_Association][l_Integer, ti_, rstari_, rstar0i_] :=
 findPatch[x_, grid_] :=
  Module[{nearest, index, patch, patchcoords, nearestWithPadding},
   nearest = First[Nearest[grid -> All, x]];
-  If[nearest["Distance"] < $MachineEpsilon,
+  If[Block[{Internal`$SameQTolerance = 4}, SameQ[nearest["Element"], x]],
     patch = index = nearest["Index"];
     patchcoords = grid[[index]];,
     (* Always choose the nearest point to the left of the specified point *)
