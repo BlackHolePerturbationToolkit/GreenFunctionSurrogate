@@ -117,7 +117,7 @@ GreenFunctionSurrogate[s_, l_,
        t : (_?NumericQ | {_?NumericQ ..}),
    rstar : (_?NumericQ | {_?NumericQ ..}),
   rstar0 : (_?NumericQ | {_?NumericQ ..})] :=
- Module[{tRet, ti, tp, trange, rstari, rstarp, rstarrange, rstar0i, rstar0p, rstar0range, T, Rstar, Rstar0, interp},
+ Module[{tRet, ti, tp, trange, rstari, rstarp, rstarrange, rstar0i, rstar0p, rstar0range, T, Rstar, Rstar0, data, interp},
   (* Account for time retardation *)
   tRet = t - Abs[rstar - rstar0];
 
@@ -147,10 +147,138 @@ GreenFunctionSurrogate[s_, l_,
     Rstar0 = rstar0;
   ];
 
-  If[SameQ[Rstar0, Rstar, T, Nothing],
+  Which[
+  (* We have this grid point in our surrogate data, no need to interpolate *)
+  SameQ[Rstar0, Rstar, T, Nothing],
+    Sow[{"Exact: ", {tp, rstarp, rstar0p}}];
     sur[s][l, tp, rstarp, rstar0p],
+
+  (* Either we're far enough away from the r=r' kink to use a standard interpolation
+     stencil, or we don't need to interpolate in rstar or rstar0 as they are both
+     on our surrogate data grid. *)
+  Abs[rstari - rstar0i] >= 3 || SameQ[Rstar0, Rstar, Nothing],
+    Sow[{"Interp: ", {tp, rstarp, rstar0p}, {trange, rstarrange, rstar0range}, {T, Rstar, Rstar0}}];
     interp = ListInterpolation[sur[s][l, tp, rstarp, rstar0p], {trange, rstarrange, rstar0range}];
-    interp @@ {T, Rstar, Rstar0}
+    interp @@ {T, Rstar, Rstar0},
+
+  (* We're close to the r=r' kink; use a skewed stencil to avoid the discontinuity.
+     There are 5 subcases depending on which edge we're nearest to: *)
+
+  (* Case 1: r>r0 and r << rmax - skew grid in +r direction *)
+  (0 < rstar - rstar0) && (rstari - rstar0i < 3) && rstari < Length[sur[s]["rstar"]]/2,
+    (* NB: in the following being on an r grid point doesn't help,
+       as it won't be on a skewed gridpoint. Conversely, it's possible
+       that we're on a skewed grid point and miss it, but that's an optimisation
+       that can be added later. *)
+    Rstar = rstar;
+    Which[
+    SameQ[T, Rstar0, Nothing], (* Have to interpolate in r only *)
+      data = Table[sur[s][l, ti, j, rstar0i], {j, rstar0i, rstar0i + 3}];
+      rstarrange = sur[s]["rstar"][[{rstar0i, rstar0i + 3}]];,
+    SameQ[Rstar0, Nothing], (* Have to interpolate in r and t *)
+      data = Table[sur[s][l, i, j, rstar0i], {i, tp[[1]], tp[[2]]}, {j, rstar0i, rstar0i + 3}];
+      rstarrange = sur[s]["rstar"][[{rstar0i, rstar0i + 3}]];,
+    SameQ[T, Nothing] || SameQ[T, Rstar, Nothing], (* Have to interpolate in r and r0 *)
+      data = Table[sur[s][l, ti, j, k], {j, k, k+3}, {k, rstar0p[[1]], rstar0p[[2]]}];
+      rstarrange = {rstar0, rstar0 + (sur[s]["rstar"][[rstari+3]]-sur[s]["rstar"][[rstari]])};,
+    SameQ[Rstar, Nothing] || True, (* Have to interpolate in t, r and r0 *)
+      data = Table[sur[s][l, i, j, k], {i, tp[[1]], tp[[2]]}, {j, k, k+3}, {k, rstar0p[[1]], rstar0p[[2]]}];
+      rstarrange = {rstar0, rstar0 + (sur[s]["rstar"][[rstari+3]]-sur[s]["rstar"][[rstari]])};
+    ];
+    Sow[{"Interp skew 1: ", data, {trange, rstarrange, rstar0range}, {T, Rstar, Rstar0}}];
+    interp = ListInterpolation[data, {trange, rstarrange, rstar0range}];
+    interp @@ {T, Rstar, Rstar0},
+
+  (* Case 2: r>r0 and r >> 0 - skew in -r0 direction *)
+  (0 < rstar - rstar0) && (rstari - rstar0i < 3) && rstari >= Length[sur[s]["rstar"]]/2,
+    (* NB: in the following being on an r0 grid point doesn't help,
+       as it won't be on a skewed gridpoint. Conversely, it's possible
+       that we're on a skewed grid point and miss it, but that's an optimisation
+       that can be added later. *)
+    Rstar0 = rstar0;
+    Which[
+    SameQ[T, Rstar, Nothing], (* Have to interpolate in r0 only *)
+      data = Table[sur[s][l, ti, rstari, j], {j, rstari - 3, rstari}];
+      rstar0range = sur[s]["rstar0"][[{rstari - 3, rstari}]];,
+    SameQ[Rstar, Nothing], (* Have to interpolate in r0 and t *)
+      data = Table[sur[s][l, i, rstari, j], {i, tp[[1]], tp[[2]]}, {j, rstari - 3, rstari}];
+      rstar0range = sur[s]["rstar0"][[{rstari - 3, rstari}]];,
+    SameQ[T, Nothing] || SameQ[T, Rstar0, Nothing], (* Have to interpolate in r and r0 *)
+      data = Table[sur[s][l, ti, j, k], {j, rstarp[[1]], rstarp[[2]]}, {k, j - 3, j}];
+      rstar0range = {rstar - (sur[s]["rstar0"][[rstar0i]] - sur[s]["rstar0"][[rstar0i - 3]]), rstar};,
+    SameQ[Rstar0, Nothing] || True, (* Have to interpolate in t, r and r0 *)
+      data = Table[sur[s][l, i, j, k], {i, tp[[1]], tp[[2]]}, {j, rstarp[[1]], rstarp[[2]]}, {k, j - 3, j}];
+      rstar0range = {rstar - (sur[s]["rstar0"][[rstar0i]] - sur[s]["rstar0"][[rstar0i - 3]]), rstar};
+    ];
+    Sow[{"Interp skew 2: ", data, {trange, rstarrange, rstar0range}, {T, Rstar, Rstar0}}];
+    interp = ListInterpolation[data, {trange, rstarrange, rstar0range}];
+    interp @@ {T, Rstar, Rstar0},
+
+  (* Case 3: r<r0 and r << rmax - skew in +r0 direction*)
+  (-3 < rstari - rstar0i) && (rstar - rstar0 < 0) && rstari < Length[sur[s]["rstar"]]/2,
+    (* NB: in the following being on an r0 grid point doesn't help,
+       as it won't be on a skewed gridpoint. Conversely, it's possible
+       that we're on a skewed grid point and miss it, but that's an optimisation
+       that can be added later. *)
+    Rstar0 = rstar0;
+    Which[
+    SameQ[T, Rstar, Nothing], (* Have to interpolate in r0 only *)
+      data = Table[sur[s][l, ti, rstari, j], {j, rstari, rstari + 3}];
+      rstar0range = sur[s]["rstar0"][[{rstari, rstari + 3}]];,
+    SameQ[Rstar, Nothing], (* Have to interpolate in r0 and t *)
+      data = Table[sur[s][l, i, rstari, j], {i, tp[[1]], tp[[2]]}, {j, rstari, rstari + 3}];
+      rstar0range = sur[s]["rstar0"][[{rstari, rstari + 3}]];,
+    SameQ[T, Nothing] || SameQ[T, Rstar0, Nothing], (* Have to interpolate in r and r0 *)
+      data = Table[sur[s][l, ti, j, k], {j, rstarp[[1]], rstarp[[2]]}, {k, j, j + 3}];
+      rstar0range = {rstar, rstar + (sur[s]["rstar0"][[rstar0i + 3]] - sur[s]["rstar0"][[rstar0i]])};,
+    SameQ[Rstar0, Nothing] || True, (* Have to interpolate in t, r and r0 *)
+      data = Table[sur[s][l, i, j, k], {i, tp[[1]], tp[[2]]}, {j, rstarp[[1]], rstarp[[2]]}, {k, j, j + 3}];
+      rstar0range = {rstar, rstar + (sur[s]["rstar0"][[rstar0i + 3]] - sur[s]["rstar0"][[rstar0i]])};
+    ];
+    Sow[{"Interp skew 3: ", data, {trange, rstarrange, rstar0range}, {T, Rstar, Rstar0}}];
+    interp = ListInterpolation[data, {trange, rstarrange, rstar0range}];
+    interp @@ {T, Rstar, Rstar0},
+
+  (* Case 4: r<r0 and r >> 0 - skew in -r direction *)
+  (-3 < rstari - rstar0i) && (rstar - rstar0 < 0) && rstari >= Length[sur[s]["rstar"]]/2,
+    (* NB: in the following being on an r grid point doesn't help,
+       as it won't be on a skewed gridpoint. Conversely, it's possible
+       that we're on a skewed grid point and miss it, but that's an optimisation
+       that can be added later. *)
+    Rstar = rstar;
+    Which[
+    SameQ[T, Rstar0, Nothing], (* Have to interpolate in r only *)
+      data = Table[sur[s][l, ti, j, rstar0i], {j, rstar0i - 3, rstar0i}];
+      rstarrange = sur[s]["rstar"][[{rstar0i - 3, rstar0i}]];,
+    SameQ[Rstar0, Nothing], (* Have to interpolate in r and t *)
+      data = Table[sur[s][l, i, j, rstar0i], {i, tp[[1]], tp[[2]]}, {j, rstar0i - 3, rstar0i}];
+      rstarrange = sur[s]["rstar"][[{rstar0i - 3, rstar0i}]];,
+    SameQ[T, Nothing] || SameQ[T, Rstar, Nothing], (* Have to interpolate in r and r0 *)
+      data = Table[sur[s][l, ti, j, k], {j, k-3, k}, {k, rstar0p[[1]], rstar0p[[2]]}];
+      rstarrange = {rstar0 - (sur[s]["rstar"][[rstari]] - sur[s]["rstar"][[rstari - 3]]), rstar0};,
+    SameQ[Rstar, Nothing] || True, (* Have to interpolate in t, r and r0 *)
+      data = Table[sur[s][l, i, j, k], {i, tp[[1]], tp[[2]]}, {j, k-3, k}, {k, rstar0p[[1]], rstar0p[[2]]}];
+      rstarrange = {rstar0 - (sur[s]["rstar"][[rstari]] - sur[s]["rstar"][[rstari - 3]]), rstar0};
+    ];
+    Sow[{"Interp skew 4: ", data, {trange, rstarrange, rstar0range}, {T, Rstar, Rstar0}}];
+    interp = ListInterpolation[data, {trange, rstarrange, rstar0range}];
+    interp @@ {T, Rstar, Rstar0},
+
+  (* Case 5: r=r0 *)
+  rstar == rstar0,
+    If[SameQ[T, Nothing],
+      data = Table[sur[s][l, ti, j, j], {j, rstar0p[[1]], rstar0p[[2]]}];
+      Sow[{"Interp skew 5a: ", data, rstar0range, {T, Rstar, Rstar0}}];
+      interp = ListInterpolation[data, rstar0range];
+      interp @@ {Rstar0}
+    ,
+      data = Table[sur[s][l, i, j, j], {i, tp[[1]], tp[[2]]}, {j, rstar0p[[1]], rstar0p[[2]]}];
+      Sow[{"Interp skew 5b: ", data, {trange, rstar0range}, {T, Rstar, Rstar0}}];
+      interp = ListInterpolation[data, {trange, rstar0range}];
+      interp @@ {T, Rstar0}
+    ],
+
+  True, $Failed (* We should never reach here *)
   ]
 ];
 
