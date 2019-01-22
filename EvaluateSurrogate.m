@@ -138,7 +138,7 @@ GreenFunctionSurrogate[s_, l_,
   If[Head[rstarp]=!=Span,
     rstarrange = Nothing;
     Rstar = Nothing;,
-    Rstar=rstar;
+    Rstar = rstar;
   ];
 
   If[Head[rstar0p]=!=Span,
